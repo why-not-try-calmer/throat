@@ -115,6 +115,10 @@ configurable_defaults = {
                 ),
                 "value": False,
             },
+            "allow_email_forwarded_notifications": {
+                "type": "bool",
+                "doc": _l("Allow users to opt-in to have notifications forwarded as emails."),
+            },
             "allow_uploads": {
                 "type": "bool",
                 "doc": _l(
@@ -729,7 +733,7 @@ class Map:
 
 
 class Config(Map):
-    """ Main config object """
+    """Main config object"""
 
     def __init__(
         self,
@@ -826,7 +830,7 @@ class Config(Map):
 
 
 def ensure_trailing_slash(val):
-    """ Add a slash to the string if it doesn't already have one. """
+    """Add a slash to the string if it doesn't already have one."""
     if val and val[-1] != "/":
         return val + "/"
     else:

@@ -17,12 +17,13 @@ from .models import (
     SubPostVote,
 )
 from .socketio import socketio
-from .misc import get_notification_count
+from .misc import EmailNotificationsQueue, get_notification_count
 
 
 class Notifications(object):
     def __init__(self):
         self.push_service = None
+        self.email_notifications_queue = None
 
     def init_app(self, app):
         with app.app_context():
@@ -30,6 +31,9 @@ class Notifications(object):
                 self.push_service = FCMNotification(
                     api_key=config.notifications.fcm_api_key
                 )
+            if config.site.allow_email_forwarded_notifications:
+                self.email_notifications_queue = EmailNotificationsQueue()
+                self.email_notifications_queue.schedule()
 
     @staticmethod
     def get_notifications(uid, page):
