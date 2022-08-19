@@ -161,8 +161,8 @@ def j2_log_after(*args, **kwargs):
     )
 
 
-# before_render_template.connect(j2_log_before)
-# template_rendered.connect(j2_log_after)
+before_render_template.connect(j2_log_before)
+template_rendered.connect(j2_log_after)
 
 mail = Mail()
 
