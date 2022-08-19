@@ -703,48 +703,65 @@ def start_forwarding_recent_unread_notifications(
     """
 
     def gtask():
-        """Periodically fetching and handling notifications"""
+        """
+        Periodically fetching and forwarding notifications
+        for user who've opted-in to the feature
+        """
         while True:
             gevent.sleep(period_sec)
             now = datetime.utcnow()
             before = now - timedelta(days=lower_bound_days)
             after = now - timedelta(minutes=upper_bound_minutes)
 
-            notifications = Notification.select(
-                Notification.type,
-                Notification.content,
-                Notification.sub,
-                Notification.post,
-                Notification.comment,
-                Notification.target,
-                Notification.created,
-                SubPost.title.alias("post_title"),
-                SubPostComment.content.alias("comment_content"),
-            ).where(
-                Notification.read.is_null(False) & before
-                < Notification.created & Notification.created
-                < after
+            notifs_cursor = (
+                Notification.select(
+                    Notification.type,
+                    Notification.sub,
+                    Notification.post,
+                    Notification.comment,
+                    Notification.target,
+                    Notification.created,
+                    SubPost.title,
+                    SubPost.link,
+                    SubPostComment.content,
+                )
+                .join(SubPost)
+                .join(SubPostComment)
+                .where(
+                    Notification.read.is_null(False) & before
+                    < Notification.created & Notification.created
+                    < after
+                )
+                .dicts()
+                .execute()
             )
 
-            users = User.select(User.name, User.email).where(
-                User.opt_in_email_forwarded_notifications == True
+            users_cursor = (
+                User.select(User.name, User.email)
+                .where(User.opt_in_email_forwarded_notifications == True)
+                .execute()
             )
-            opt_ins = {user.uid: user for user in users}
 
-            for notif in notifications:
+            opt_ins = {user.uid: user for user in users_cursor}
+
+            for notif in notifs_cursor:
                 try:
                     if notif.target in opt_ins:
-                        report = "A user has recently "
+                        to = opt_ins[notif.target].email
+                        user_name = opt_ins[notif].name
+                        link = notif.link
+                        post_title = notif.title
+                        email_object = "a user has recently "
                         if notif.type == "POST_REPLY":
-                            report += "replied to a post of yours"
+                            email_object += "replied to a post of yours"
                         elif notif.type == "COMMENT_REPLY":
-                            report += "replied to a comment of yours "
+                            email_object += "replied to a comment of yours "
                         elif notif.type == "POST_MENTION":
-                            report += "mentioned a post of yours "
+                            email_object += "mentioned a post of yours "
                         elif notif.type == "COMMENT_MENTION":
-                            report += "mentioned a mention of yours "
-                        to = opt_ins.email
-                        send_email(to, report, notif.content, "")
+                            email_object += "mentioned a mention of yours "
+                        body = f"Dear {user_name}, {email_object} in the post {post_title}. Link: {link}"
+                        send_email(to, email_object.capitalize(), body, "")
                 except Exception:
                     continue
 
